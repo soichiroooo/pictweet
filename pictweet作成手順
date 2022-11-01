@@ -1,0 +1,494 @@
+1. アプリケーションの新規作成手順
+
+  Railsアプリケーションの新規作成
+    アプリケーションを作成したいディレクトリに移動する
+      rails _6.0.0_ new pictweet -d mysql
+
+  database.ymlを編集
+    「config/database.yml」を編集
+        「encoding: utf8mb4」→「encoding: utf8」
+
+  データベースの作成
+    「rails db:create」
+    Sequel Proで作成できたかを確認
+    「rails s」でサーバーを起動
+    ブラウザで「http://localhost:3000」にアクセス
+
+2.ライブラリを導入
+  Gemfileを編集
+    Gemfile内で、Gemであるmysql2のバージョンを0.5.3へ変更
+        「gem 'mysql2', '0.5.3'」に記載を変更
+    
+    Gemfile内で、Gemであるpry-railsを追加
+        「gem 'pry-rails'」を最終行に追記
+
+  インストール
+    cd ~/projects/pictweet
+    bundle install
+    rails s
+
+3.モデルの作成
+  rails g model tweet
+
+  マイグレーションファイルに以下を追記
+      t.string :name
+      t.string :text
+      t.text :image
+
+  マイグレーション
+    rails db:migrate
+    rails s
+
+4. 一覧機能（indexアクション）を実装する手順
+
+  コントローラーの作成
+    「rails g controller tweets」
+  
+  コントローラーの設定
+    「app/controllers/tweets_controller.rb」に以下のように記述して「index」アクションを定義
+
+      def index
+        @tweets = Tweet.all
+      end
+
+  ルーティングの設定
+    「config/routes.rb」ファイルに以下を記述
+        
+        root to: 'tweets#index'
+        resources :tweets, only: :index
+
+  ビューの作成
+    「app/views/tweets/index.html.erb」を以下のように編集
+
+        <div class="contents row">
+          <% @tweets.each do |tweet| %>
+            <div class="content_post" style="background-image: url(<%= tweet.image %>);">
+              <p><%= tweet.text %></p>
+              <span class="name">
+                <%= tweet.name %>
+              </span>
+            </div>
+          <% end %>
+        </div>
+
+      CSSファイルを作成
+        「app/views/layouts/application.html.erb」にヘッダーとフッターを追記
+
+        <header class="header">
+          <div class="header__bar row">
+            <h1 class="grid-6"><a href="/">PicTweet</a></h1>
+            <% if user_signed_in? %>
+              <div class="user_nav grid-6">
+                <%= link_to "ログアウト", destroy_user_session_path, method: :delete %>
+                <%= link_to "投稿する", new_tweet_path, class: "post" %>
+              </div>
+            <% else %>
+              <div class="grid-6">
+                <%= link_to "ログイン", new_user_session_path, class: "post" %>
+                <%= link_to "新規登録", new_user_registration_path, class: "post" %>
+              </div>
+            <% end %>
+          </div>
+        </header>
+
+        <footer>
+          <p>
+            Copyright PicTweet 2019.
+          </p>
+        </footer>
+
+
+5. 投稿画面（newアクション）を作成する手順
+  コントローラーの設定
+      def new
+        @tweet = Tweet.new
+      end
+
+  ルーティングの設定
+      resources :tweets, only: [:index, :new]
+
+  ビューの作成と設定
+    「app/views/tweets/new.html.erb」に以下を記述
+    
+    <div class="contents row">
+      <div class="container">
+        <h3>投稿する</h3>
+        <%= form_with(model: @tweet, local: true) do |form| %>
+          <%= form.text_field :name, placeholder: "Nickname" %>
+          <%= form.text_field :image, placeholder: "Image Url" %>
+          <%= form.text_area :text, placeholder: "text", rows: "10" %>
+          <%= form.submit "SEND" %>
+        <% end %>
+      </div>
+    </div>
+
+
+4. 保存機能（createアクション）を実装する手順
+  コントローラーの設定
+      def create
+        Tweet.create(tweet_params)
+      end
+
+      private
+      def tweet_params
+        params.require(:tweet).permit(:name, :image, :text)
+      end
+
+  ルーティングの設定
+      resources :tweets, only: [:index, :new, :create]
+
+  ビューの作成
+    「app/views/tweets/create.html.erb」に以下を記述
+
+    <div class="contents row">
+      <div class="success">
+        <h3>投稿が完了しました。</h3>
+        <a class="btn" href="/">投稿一覧へ戻る</a>
+      </div>
+    </div>
+
+5. バリデーション
+    app/models/tweet.rb
+        validates :text, presence: true
+
+6. 削除機能追加
+    config/routes.rb
+        resources :tweets, only: [:index, :new, :create, :destroy]
+    
+    app/views/tweets/index.html.erb
+    <div class="contents row">
+      <% @tweets.each do |tweet| %>
+        <div class="content_post" style="background-image: url(<%= tweet.image %>);">
+          <div class="more">
+            <span><%= image_tag 'arrow_top.png' %></span>
+            <ul class="more_list">
+              <li>
+                <%= link_to '削除', tweet_path(tweet.id), method: :delete %>
+              </li>
+            </ul>
+          </div>
+          <p><%= tweet.text %></p>
+          <span class="name">
+            <%= tweet.name %>
+          </span>
+        </div>
+      <% end %>
+    </div>
+
+    app/controllers/tweets_controller.rb
+        def destroy
+          tweet = Tweet.find(params[:id])
+          tweet.destroy
+        end
+
+    app/views/tweets/destroy.html.erb
+    <div class="contents row">
+      <div class="success">
+        <h3>削除が完了しました。</h3>
+        <a class="btn" href="/">投稿一覧へ戻る</a>
+      </div>
+    </div>
+
+7. 編集機能
+
+  config/routes.rb
+      resources :tweets, only: [:index, :new, :create, :destroy, :edit, :update]
+
+  app/views/tweets/index.html.erb
+  <div class="contents row">
+    <% @tweets.each do |tweet| %>
+      <div class="content_post" style="background-image: url(<%= tweet.image %>);">
+        <div class="more">
+          <span><%= image_tag 'arrow_top.png' %></span>
+          <ul class="more_list">
+            <li>
+              <%= link_to '編集', edit_tweet_path(tweet.id), method: :get %>
+            </li>
+            <li>
+              <%= link_to '削除', tweet_path(tweet.id), method: :delete %>
+            </li>
+          </ul>
+        </div>
+        <p><%= tweet.text %></p>
+        <span class="name">
+          <%= tweet.name %>
+        </span>
+      </div>
+    <% end %>
+  </div>
+
+  app/controllers/tweets_controller.rb
+      def edit
+        @tweet = Tweet.find(params[:id])
+      end
+
+      def update
+        tweet = Tweet.find(params[:id])
+        tweet.update(tweet_params)
+      end
+
+  app/views/tweets/edit.html.erb
+  <div class="contents row">
+    <div class="container">
+      <h3>編集する</h3>
+      <%= form_with(model: @tweet, local: true) do |form| %>
+        <%= form.text_field :name, placeholder: "Nickname" %>
+        <%= form.text_field :image, placeholder: "Image Url" %>
+        <%= form.text_area :text, placeholder: "text", rows: "10" %>
+        <%= form.submit "SEND" %>
+      <% end %>
+    </div>
+  </div>
+
+  app/views/tweets/update.html.erb
+  <div class="contents row">
+    <div class="success">
+      <h3>更新が完了しました。</h3>
+      <a class="btn" href="/">投稿一覧へ戻る</a>
+    </div>
+  </div>
+
+8. 詳細機能
+  config/routes.rb
+      resources :tweets
+
+  app/views/tweets/index.html.erb
+  <div class="contents row">
+    <% @tweets.each do |tweet| %>
+      <div class="content_post" style="background-image: url(<%= tweet.image %>);">
+        <div class="more">
+          <span><%= image_tag 'arrow_top.png' %></span>
+          <ul class="more_list">
+            <li>
+              <%= link_to '詳細', tweet_path(tweet.id), method: :get %>
+            </li>
+            <li>
+              <%= link_to '編集', edit_tweet_path(tweet.id), method: :get %>
+            </li>
+            <li>
+              <%= link_to '削除', tweet_path(tweet.id), method: :delete %>
+            </li>
+          </ul>
+        </div>
+        <p><%= tweet.text %></p>
+        <span class="name">
+          <%= tweet.name %>
+        </span>
+      </div>
+    <% end %>
+  </div>
+
+  app/controllers/tweets_controller.rb
+
+      before_action :set_tweet, only: [:edit, :show]
+
+      def edit
+      end
+
+      def show
+      end
+
+      def set_tweet
+        @tweet = Tweet.find(params[:id])
+      end
+
+  app/views/tweets/show.html.erb
+  <div class="contents row">
+    <div class="content_post" style="background-image: url(<%= @tweet.image %>);">
+      <div class="more">
+        <span><%= image_tag 'arrow_top.png' %></span>
+        <ul class="more_list">
+          <li>
+            <%= link_to '編集', edit_tweet_path(@tweet.id), method: :get %>
+          </li>
+          <li>
+            <%= link_to '削除', tweet_path(@tweet.id), method: :delete %>
+          </li>
+        </ul>
+      </div>
+      <p><%= @tweet.text %></p>
+      <span class="name"><%= @tweet.name %>
+      </span>
+    </div>
+  </div>
+
+9. ユーザーを登録
+
+deviseをインストール
+  Gemfileを編集
+      gem 'devise'
+  ターミナル
+    bundle install
+    rails s
+    rails g devise:install
+    rails g devise user
+
+テーブルを作成
+    rails db:migrate
+    rails s
+
+ビューを作成
+    rails g devise:views
+
+    app/views/devise/sessions/new.html.erb
+    <div class="contents row">
+      <div class="container">
+        <h2>Log in</h2>
+        <%= form_with model: @user, url: user_session_path, id: 'new_user', class: 'new_user', local: true do |f| %>
+          <div class="field">
+            <%= f.label :email %><br />
+            <%= f.email_field :email, autofocus: true %>
+          </div>
+    
+          <div class="field">
+            <%= f.label :password %><br />
+            <%= f.password_field :password, autocomplete: "off" %>
+          </div>
+    
+          <% if devise_mapping.rememberable? %>
+            <div class="field">
+              <%= f.label :remember_me %><br />
+              <%= f.check_box :remember_me %>
+            </div>
+          <% end -%>
+    
+          <div class="actions">
+            <%= f.submit "Log in" %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    app/views/devise/registrations/new.html.erb
+    <div class="contents row">
+      <div class="container">
+        <h2>Sign up</h2>
+        <%= form_with model: @user, url: user_registration_path, id: 'new_user', class: 'new_user', local: true do |f| %>
+          <%= render "devise/shared/error_messages", resource: resource %>
+    
+          <div class="field">
+            <%= f.label :nickname %> <em>(6 characters maximum)</em><br />
+            <%= f.text_field :nickname, autofocus: true, maxlength: "6" %>
+          </div>
+    
+          <div class="field">
+            <%= f.label :email %><br />
+            <%= f.email_field :email %>
+          </div>
+    
+          <div class="field">
+            <%= f.label :password %>
+            <% if @minimum_password_length %>
+              <em>(<%= @minimum_password_length %> characters minimum)</em>
+            <% end %><br />
+            <%= f.password_field :password, autocomplete: "off" %>
+          </div>
+    
+          <div class="field">
+            <%= f.label :password_confirmation %><br />
+            <%= f.password_field :password_confirmation, autocomplete: "off" %>
+          </div>
+    
+          <div class="actions">
+            <%= f.submit "Sign up" %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+ニックネームカラムを追加
+    rails g migration AddNicknameToUsers nickname:string
+    rails db:migrate
+    rails s
+
+app/controllers/application_controller.rb
+    before_action :configure_permitted_parameters, if: :devise_controller?
+
+    private
+    def configure_permitted_parameters
+      devise_parameter_sanitizer.permit(:sign_up, keys: [:nickname])
+    end
+
+
+10. リダイレクトを設定
+  app/controllers/tweets_controller.rb
+      before_action :move_to_index, except: [:index, :show]
+
+      def move_to_index
+        unless user_signed_in?
+          redirect_to action: :index
+        end
+      end
+
+11. マイページ実装
+    ターミナル
+    rails g migration AddUserIdToTweets user_id:integer
+    rails db:migrate
+
+    app/controllers/tweets_controller.rb
+    private
+    def tweet_params
+      params.require(:tweet).permit(:name, :image, :text).merge(user_id: current_user.id)
+    end
+
+    app/models/user.rb
+    「has_many :tweets」を追記
+
+    app/models/tweet.rb
+    「belongs_to :user」を追記
+
+    config/routes.rb
+    「resources :users, only: :show」を追記
+
+    app/views/layouts/application.html.erb
+    <span><%= current_user.nickname %>
+      <ul class="user__info">
+        <li>
+          <%= link_to "マイページ", "/users/#{current_user.id}" %>
+          <%= link_to "ログアウト", destroy_user_session_path, method: :delete %>
+        </li>
+      </ul>
+    </span>
+    を追記
+
+    コントローラーを作成
+    rails g controller users
+
+    app/controllers/users_controller.rb
+    def show
+      @nickname = current_user.nickname
+      @tweets = current_user.tweets
+    end
+
+    app/views/users/show.html.erb
+    <div class="contents row">
+      <p><%= @nickname %>さんの投稿一覧</p>
+      <% @tweets.each do |tweet| %>
+        <div class="content_post" style="background-image: url(<%= tweet.image %>);">
+          <p><%= tweet.text %></p>
+          <span class="name"><%= tweet.name %></span>
+        </div>
+      <% end %>
+    </div>
+
+    app/views/tweets/index.html.erb
+    <a href="/users/<%= tweet.user.id %>">
+      <span>投稿者</span><%= tweet.user.nickname %>
+    </a>
+    を追記
+
+    app/views/tweets/show.html.erb
+    <span class="name">
+      <a href="/users/<%= @tweet.user.id %>">
+        <span>投稿者</span><%= @tweet.user.nickname %>
+      </a>
+    </span>
+
+    app/controllers/tweets_controller.rb
+    def index
+      @tweets = Tweet.includes(:user)
+    end
+
+    app/views/tweets/new.html.erb
+    <%= form.text_field :name, placeholder: "Nickname" %>  # この5行目を削除
+    
