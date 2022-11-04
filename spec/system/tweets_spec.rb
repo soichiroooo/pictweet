@@ -155,7 +155,7 @@ RSpec.describe 'ツイート削除', type: :system do
       ).to have_no_link '削除', href: tweet_path(@tweet1)
       # ツイート2に「削除」へのリンクがないことを確認する
       expect(
-        all(".more")[0].hover
+        all('.more')[0].hover
       ).to have_no_link '削除', href: tweet_path(@tweet2)
     end
   end
@@ -167,9 +167,11 @@ RSpec.describe 'ツイート詳細', type: :system do
   end
   it 'ログインしたユーザーはツイート詳細ページに遷移してコメント投稿欄が表示される' do
     # ログインする
-    sign_in(@user)
+    sign_in(@tweet.user)
     # ツイートに「詳細」へのリンクがあることを確認する
-    expect(all(".more")[0].hover).to have_link '詳細', href: tweet_path(@tweet)
+    expect(
+      all('.more')[0].hover
+    ).to have_link '詳細', href: tweet_path(@tweet)
     # 詳細ページに遷移する
     visit tweet_path(@tweet)
     # 詳細ページにツイートの内容が含まれている
